@@ -13,44 +13,54 @@
 
 ## 2. Технические решения (фиксируем до начала работ)
 
-1. **Backend:** NestJS (текущий `snappit-backend`).
-2. **БД:** Railway Postgres (один источник истины).
-3. **Очередь:** DB queue/outbox в Postgres на Railway (без Redis на MVP этапа C).
-4. **ORM:** Prisma (быстрый старт + миграции + транзакции).
+1. **Backend:** Python 3.12 + FastAPI (текущий `snappit-backend-py`).
+2. **БД:** Railway PostgreSQL (один источник истины).
+3. **Очередь:** DB queue/outbox в PostgreSQL на Railway (без Redis на MVP этапа C).
+4. **ORM:** SQLAlchemy 2.x (async) + `asyncpg` как драйвер; миграции через Alembic.
 5. **Email provider:** Resend (или Postmark, интерфейс абстрагируется).
-6. **Webhook verification:** Paddle SDK + `PADDLE_WEBHOOK_SECRET`.
+6. **Webhook verification:** Paddle Python SDK + `PADDLE_WEBHOOK_SECRET`.
 7. **Хранение кода активации:** только hash (HMAC-SHA256 с `LICENSE_CODE_PEPPER`), plaintext отправляется только в email.
 
-## 3. Что делаем внутри `snappit-backend`
+## 3. Что делаем внутри `snappit-backend-py`
 
 ## 3.1 Базовая инфраструктура проекта
 
-1. Добавить модули:
-   - `ConfigModule` (валидация env через zod/joi).
-   - `PrismaModule`.
-   - `PaddleWebhookModule`.
-   - `FulfillmentWorkerModule`.
-   - `LicensesModule`.
-   - `EmailModule`.
-   - `HealthModule`.
+1. Организовать модули/пакеты:
+   - `config` (валидация env через `pydantic-settings`).
+   - `db` (engine/session на SQLAlchemy async + asyncpg).
+   - `api.paddle_webhook` (роутер webhook).
+   - `workers.fulfillment` (фоновая обработка `webhook_events`).
+   - `workers.email` (фоновая отправка `email_jobs`).
+   - `services.licenses` (бизнес-логика лицензий).
+   - `services.email` (абстракция email-провайдера).
+   - `api.health` (liveness/readiness).
 
-2. Добавить зависимости:
-   - `@prisma/client`, `prisma`
-   - `paddle-node-sdk` (или официальный актуальный SDK)
-   - `@nestjs/schedule` (воркер polling outbox)
-   - `resend` (или SDK выбранного провайдера)
-   - `class-validator`, `class-transformer`
-   - `helmet`, `@nestjs/throttler`, `pino`/`nestjs-pino`
+2. Добавить зависимости (в `pyproject.toml` / `requirements.txt`):
+   - `fastapi`, `uvicorn[standard]`
+   - `sqlalchemy[asyncio]>=2.0`, `asyncpg`, `alembic`
+   - `pydantic`, `pydantic-settings`
+   - `paddle-billing-client` (или официальный актуальный Python SDK Paddle)
+   - `httpx` (для email-провайдера, если нет нативного SDK)
+   - `resend` (SDK выбранного провайдера)
+   - `structlog` / `loguru` + `python-json-logger`
+   - `slowapi` (rate limiting) или собственный middleware
+   - `sentry-sdk`
+   - `apscheduler` (или собственный asyncio-воркер) для polling outbox
 
-3. Настроить `main.ts`:
-   - raw body для `/api/paddle/webhook` (критично для подписи).
-   - global validation pipe.
+3. Настроить `main.py` (ASGI-приложение):
+   - raw body для `/api/paddle/webhook` (критично для подписи) — читать через `await request.body()` до валидации Pydantic.
+   - глобальные `exception_handlers` + единый error model.
    - rate limit на публичные endpoints лицензирования.
-   - request-id middleware для трассировки.
+   - middleware для `request_id` (трассировка логов).
+   - структурные JSON-логи.
 
-## 3.2 Схема данных (Railway Postgres)
+4. Процессы запуска:
+   - API: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
+   - Workers: отдельные entrypoints (`python -m app.workers.fulfillment`, `python -m app.workers.email`) — долгоживущие asyncio-циклы.
 
-Создать Prisma schema + SQL-миграции для таблиц:
+## 3.2 Схема данных (Railway PostgreSQL)
+
+Создать SQLAlchemy-модели + Alembic-миграции для таблиц:
 
 1. `licenses`
    - `id uuid pk`
@@ -110,10 +120,10 @@
 
 ## 3.3 Webhook ingestion (`POST /api/paddle/webhook`)
 
-1. Принять raw body + заголовок `Paddle-Signature`.
-2. Верифицировать подпись через `PADDLE_WEBHOOK_SECRET`.
+1. Принять raw body + заголовок `Paddle-Signature` (читаем `await request.body()` до любой Pydantic-валидации).
+2. Верифицировать подпись через `PADDLE_WEBHOOK_SECRET` (Paddle Python SDK).
 3. Извлечь `event_id`, `notification_id`, `event_type`, `occurred_at`.
-4. Upsert в `webhook_events` (unique `event_id`).
+4. Upsert в `webhook_events` (unique `event_id`) через SQLAlchemy `insert(...).on_conflict_do_nothing()`.
 5. **Всегда быстро вернуть `200`** (после успешной валидации и записи pending-события).
 6. Ошибки валидации подписи -> `400`.
 
@@ -121,7 +131,7 @@
 
 ## 3.4 Фоновая обработка (fulfillment worker)
 
-1. Воркер (каждые 5–10 секунд) берет `webhook_events.status='pending'` с `FOR UPDATE SKIP LOCKED`.
+1. Воркер (asyncio-loop, каждые 5–10 секунд) берет `webhook_events.status='pending'` с `SELECT ... FOR UPDATE SKIP LOCKED` (через `select(...).with_for_update(skip_locked=True)`).
 2. Обрабатывает типы:
    - `transaction.completed`
    - `adjustment.updated`
@@ -129,77 +139,78 @@
    - проверить, что в line items есть нужный `price_id` (`PADDLE_PRICE_ID_FULL_LICENSE`).
    - если лицензия с `paddle_transaction_id` уже есть -> idempotent skip.
    - иначе:
-     - сгенерировать activation code (`SNP-XXXX-XXXX-XXXX`).
-     - вычислить `activation_code_hash`.
+     - сгенерировать activation code (`SNP-XXXX-XXXX-XXXX`) через `secrets`.
+     - вычислить `activation_code_hash` (HMAC-SHA256 с pepper).
      - создать `licenses` со статусом `active`, `max_devices=2`.
      - создать `email_jobs` на отправку кода.
+   - всё в одной транзакции SQLAlchemy (`async with session.begin()`).
 4. Логика `adjustment.updated`:
    - если `action=refund` и `status=approved`, найти лицензию по transaction/related id.
    - если событие свежее (`occurred_at >= last_event_occurred_at`) -> перевести в `refunded` или `revoked`.
    - активные устройства пометить `deactivated_at=now()`.
    - поставить email job о refund/revoke (опционально в этапе C, но желательно).
 5. Retry policy:
-   - exponential backoff (например 1m, 5m, 15m, 1h, 6h).
+   - exponential backoff (например 1m, 5m, 15m, 1h, 6h) — обновлять `next_retry_at` и `attempts`.
    - после N попыток -> `failed` + alert.
 
 ## 3.5 Email worker
 
-1. Отдельный воркер читает `email_jobs.pending`.
-2. Отправляет transactional email (template `activation-code`).
+1. Отдельный asyncio-воркер читает `email_jobs.pending` с `FOR UPDATE SKIP LOCKED`.
+2. Отправляет transactional email (template `activation-code`) через SDK провайдера.
 3. Фиксирует `sent`/`failed`, retries по backoff.
 4. Идемпотентность: для "activation-code" использовать уникальный `message_key` (например `license_id + template`).
 
 ## 3.6 API лицензирования для `snappit-app`
 
-Реализовать endpoints:
+Реализовать endpoints (FastAPI + Pydantic-схемы):
 
 1. `POST /v1/licenses/activate`
-   - input: `activationCode`, `deviceId`, `deviceName`, `platform`, `appVersion`
+   - input: `activation_code`, `device_id`, `device_name`, `platform`, `app_version`
    - шаги:
      - hash(code) -> lookup лицензии
      - проверить `status='active'`
-     - в транзакции:
+     - в транзакции (`async with session.begin()`):
        - если устройство уже активировано -> success idempotent
        - иначе count active devices
        - если `< max_devices` -> insert activation
        - иначе 409 `DEVICE_LIMIT_REACHED`
-   - output: `licenseStatus`, `activeDevices`, `maxDevices`
+   - output: `license_status`, `active_devices`, `max_devices`
 
 2. `POST /v1/licenses/deactivate-device`
-   - input: `activationCode`, `deviceId`
+   - input: `activation_code`, `device_id`
    - пометить `deactivated_at` для конкретного active устройства
    - output: актуальный список устройств
 
 3. `GET /v1/licenses/devices`
-   - input: `activationCode`
+   - input: `activation_code`
    - output: активные устройства
 
 4. `POST /v1/licenses/validate` (рекомендуется в этом же этапе)
-   - input: `activationCode`, `deviceId`
-   - output: `active|revoked|refunded`, `graceUntil` (если вводится grace-policy)
+   - input: `activation_code`, `device_id`
+   - output: `active|revoked|refunded`, `grace_until` (если вводится grace-policy)
 
 ## 3.7 Безопасность и эксплуатация
 
-1. Rate limit на `/v1/licenses/*`.
-2. Нормализованный error model (без утечек внутренних данных).
-3. Логи:
+1. Rate limit на `/v1/licenses/*` (`slowapi` или middleware).
+2. Нормализованный error model через кастомные `exception_handler` FastAPI (без утечек внутренних данных).
+3. Структурные JSON-логи:
    - `request_id`
    - `event_id`
    - `license_id`
-4. Sentry/аналог для exception tracking.
+4. Sentry (`sentry-sdk[fastapi]`) для exception tracking.
 5. Health checks:
-   - `/health/live`
-   - `/health/ready` (DB + email provider ping optional).
+   - `GET /health/live`
+   - `GET /health/ready` (DB ping `SELECT 1` + email provider ping optional).
 
 ## 3.8 Тестирование в backend
 
-1. Unit tests:
+1. Unit tests (`pytest` + `pytest-asyncio`):
    - signature verification
    - activation code hashing
    - idempotent activation
    - refund status transitions
 
-2. Integration tests:
+2. Integration tests (`pytest` + `httpx.AsyncClient` + testcontainers/pytest-postgresql):
    - webhook ingestion -> pending event
    - worker transaction.completed -> license + email_job
    - duplicate webhook event_id -> no duplicate
@@ -211,13 +222,13 @@
 
 ## 4. Что нужно настроить снаружи проекта
 
-## 4.1 Railway (Postgres + окружения)
+## 4.1 Railway (PostgreSQL + окружения)
 
 1. Создать окружения `sandbox` и `live` (в одном Railway проекте или в двух отдельных проектах).
-2. Поднять Postgres-сервис в каждом окружении.
+2. Поднять PostgreSQL-сервис в каждом окружении.
 3. Получить/настроить переменные:
-   - `DATABASE_URL` (Prisma runtime + worker)
-   - `DIRECT_URL` (опционально, отдельный direct URL для Prisma migrations)
+   - `DATABASE_URL` (формат `postgresql+asyncpg://...` для SQLAlchemy async runtime и воркеров)
+   - `ALEMBIC_DATABASE_URL` (опционально, sync-URL `postgresql+psycopg://...` для Alembic-миграций)
 4. Включить бэкапы/снапшоты для live и проверить restore-процедуру.
 5. Настроить алерты и мониторинг БД (CPU, RAM, connections, storage).
 
@@ -244,12 +255,12 @@
 ## 4.4 Deploy/infra
 
 1. Деплоить backend в Railway:
-   - web service для API/webhook
-   - worker process для обработки `webhook_events` и `email_jobs`
+   - web service для API/webhook (`uvicorn`)
+   - worker process для обработки `webhook_events` и `email_jobs` (отдельные Python-процессы)
 2. Настроить:
    - HTTPS
    - autoscaling (минимум 2 инстанса для live)
-   - zero-downtime deploy
+   - zero-downtime deploy (graceful shutdown uvicorn + корректная остановка asyncio-воркеров)
 3. Привязать домены:
    - sandbox: `api-sandbox.snappit.app`
    - live: `api.snappit.app`
@@ -259,11 +270,11 @@
 ## 5. Переменные окружения (минимум)
 
 ```env
-NODE_ENV=development
-PORT=3000
+APP_ENV=development
+PORT=8000
 
-DATABASE_URL=
-DIRECT_URL=
+DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/snappit
+ALEMBIC_DATABASE_URL=postgresql+psycopg://user:pass@host:5432/snappit
 
 PADDLE_ENV=sandbox
 PADDLE_API_KEY=
@@ -283,7 +294,7 @@ LANDING_BASE_URL=https://sandbox.snappit.app
 
 ## 6. Порядок реализации (рекомендуемый)
 
-1. Завести Railway Postgres и миграции Prisma.
+1. Завести Railway PostgreSQL, поднять SQLAlchemy-модели и Alembic-миграции.
 2. Реализовать webhook ingestion + signature verification.
 3. Реализовать fulfillment worker и генерацию лицензии.
 4. Подключить email jobs + email worker.

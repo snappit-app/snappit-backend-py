@@ -2,9 +2,9 @@ from typing import Annotated
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 
+from src.settings import get_settings
 
-
-DATABASE_URL = "postgresql+asyncpg://snappit:password@localhost:5432/snappit_db"
+DATABASE_URL = get_settings().database_url
 
 engine = create_async_engine(
     DATABASE_URL,
