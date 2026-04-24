@@ -1,7 +1,16 @@
 {
  "languages": {
   "Python": {
-   "language_servers": ["basedpyright"],
+   "format_on_save": "on",
+   "language_servers": ["pyright", "ruff"],
+   "code_actions_on_format": {
+    "source.organizeImports.ruff": true,
+   },
+   "formatter": {
+    "language_server": {
+     "name": "ruff",
+    },
+   },
   },
  },
 }

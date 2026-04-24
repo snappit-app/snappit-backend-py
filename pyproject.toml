@@ -1,0 +1,40 @@
+[project]
+name = "snappit-backend-py"
+version = "0.1.0"
+dependencies = [
+  "fastapi",
+  "sqlalchemy[asyncio]",
+  "uvicorn",
+  "alembic",
+  "pydantic-settings",
+  "pydantic[email]",
+  "psycopg[binary]",
+]
+
+[project.optional-dependencies]
+dev = [
+  "ruff",
+  "pyright",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+  "E",   # pycodestyle errors
+  "F",   # pyflakes
+  "I",   # isort
+  "UP",  # pyupgrade
+  "B",   # flake8-bugbear
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
+[tool.pyright]
+venvPath = "."
+venv = "venv"
+pythonVersion = "3.12"
+typeCheckingMode = "standard"

@@ -1,6 +1,8 @@
 from functools import lru_cache
 from typing import ClassVar
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class Settings(BaseSettings):
     model_config: ClassVar[SettingsConfigDict] = SettingsConfigDict(
@@ -12,6 +14,7 @@ class Settings(BaseSettings):
 
     database_url: str
     sync_database_url: str
+
 
 @lru_cache
 def get_settings() -> Settings:

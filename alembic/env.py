@@ -1,22 +1,17 @@
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from sqlalchemy import engine_from_config, pool
 
+import src.models  # noqa: F401
 from alembic import context
-from src.settings import get_settings
 from src.models.base import Base
-import src.models  # pyright: ignore[reportUnusedImport]
-
+from src.settings import get_settings
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
 
-config.set_main_option(
-    "sqlalchemy.url",
-    get_settings().sync_database_url
-)
+config.set_main_option("sqlalchemy.url", get_settings().sync_database_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -73,9 +68,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

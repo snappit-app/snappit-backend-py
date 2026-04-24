@@ -1,5 +1,5 @@
 from fastapi import HTTPException
-from sqlalchemy import delete, select, update, insert
+from sqlalchemy import delete, insert, select, update
 from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,21 +38,32 @@ async def create_user(session: AsyncSession, user_data: UserCreate) -> UserRead:
         user = result.scalar_one()
         await session.commit()
         return UserRead.model_validate(user)
-    except IntegrityError:
+    except IntegrityError as err:
         await session.rollback()
-        raise HTTPException(status_code=409, detail="User already exists or constraint violated")
+        raise HTTPException(
+            status_code=409, detail="User already exists or constraint violated"
+        ) from err
 
 
-async def update_user(session: AsyncSession, user_id: int, user_data: UserUpdate) -> UserRead:
+async def update_user(
+    session: AsyncSession, user_id: int, user_data: UserUpdate
+) -> UserRead:
     try:
-        stmt = update(User).where(User.id == user_id).values(**user_data.model_dump()).returning(User)
+        stmt = (
+            update(User)
+            .where(User.id == user_id)
+            .values(**user_data.model_dump())
+            .returning(User)
+        )
         result = await session.execute(stmt)
         user = result.scalar_one()
         await session.commit()
         return UserRead.model_validate(user)
-    except NoResultFound:
+    except NoResultFound as err:
         await session.rollback()
-        raise HTTPException(status_code=404, detail=f"User {user_id} not found")
-    except IntegrityError:
+        raise HTTPException(
+            status_code=404, detail=f"User {user_id} not found"
+        ) from err
+    except IntegrityError as err:
         await session.rollback()
-        raise HTTPException(status_code=409, detail="Constraint violated")
+        raise HTTPException(status_code=409, detail="Constraint violated") from err
