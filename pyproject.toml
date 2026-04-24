@@ -7,6 +7,7 @@ dependencies = [
   "sqlalchemy[asyncio]",
   "uvicorn",
   "alembic",
+  "asyncpg",
   "pydantic-settings",
   "pydantic[email]",
   "psycopg[binary]",
