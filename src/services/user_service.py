@@ -3,8 +3,8 @@ from sqlalchemy import delete, select, update, insert
 from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models.user.orm import UserCreate, UserRead, UserUpdate
-from src.models.user.schema import User
+from src.models.user.user_orm import UserCreate, UserRead, UserUpdate
+from src.models.user.user_schema import User
 
 
 async def get_users(session: AsyncSession) -> list[UserRead]:

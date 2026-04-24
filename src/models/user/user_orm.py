@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import ClassVar
 from pydantic import BaseModel, ConfigDict, EmailStr
 
@@ -20,3 +21,5 @@ class UserRead(BaseModel):
  first_name: str
  email: EmailStr
  model_config: ClassVar[ConfigDict] = ConfigDict(from_attributes=True)
+ created_at: datetime
+ updated_at: datetime
