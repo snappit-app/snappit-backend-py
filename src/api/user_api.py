@@ -1,7 +1,7 @@
 from fastapi.routing import APIRouter
 
-from src.database import session
-from src.models.user.user_orm import UserCreate, UserRead, UserUpdate
+from src.core.database import session
+from src.models.user.user_schema import UserCreate, UserRead, UserUpdate
 from src.services import user_service
 
 user_router = APIRouter(prefix="/users", tags=["users"])

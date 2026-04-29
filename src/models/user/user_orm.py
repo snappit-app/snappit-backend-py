@@ -1,27 +1,21 @@
 from datetime import datetime
-from typing import ClassVar
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from sqlalchemy import DateTime, String, func
+from sqlalchemy.orm import Mapped, mapped_column
 
-
-class UserCreate(BaseModel):
-    first_name: str
-    second_name: str
-    third_name: str | None = None
-    email: EmailStr
+from src.models.base import Base
 
 
-class UserUpdate(BaseModel):
-    first_name: str | None = None
-    second_name: str | None = None
-    third_name: str | None = None
-    email: EmailStr | None = None
-
-
-class UserRead(BaseModel):
-    id: int
-    first_name: str
-    email: EmailStr
-    model_config: ClassVar[ConfigDict] = ConfigDict(from_attributes=True)
-    created_at: datetime
-    updated_at: datetime
+class User(Base):
+    __tablename__: str = "users"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True)
+    first_name: Mapped[str] = mapped_column(String(100))
+    second_name: Mapped[str] = mapped_column(String(100))
+    third_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )

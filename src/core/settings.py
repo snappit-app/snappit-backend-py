@@ -12,6 +12,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    paddle_secret_key: str
     database_url: str
     sync_database_url: str
 
