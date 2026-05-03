@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 
 from api.paddle import paddle_router
-from src.api.user_api import user_router
-from src.core.logger import register_logging
+from api.user_api import user_router
+from core.logger import register_logging
 
 app = FastAPI()
 

@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from src.core.settings import get_settings
+from core.settings import get_settings
 
 DATABASE_URL = get_settings().database_url
 
