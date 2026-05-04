@@ -9,7 +9,7 @@ from models.base import Base
 
 
 class PaddleWebhookEvent(Base):
-    __tablename__: str = "paddle_webhook_events"
+    __tablename__ = "paddle_webhook_events"
     id: Mapped[int] = mapped_column(primary_key=True)
     event_id: Mapped[str] = mapped_column(String(255), unique=True)
     event_type: Mapped[str] = mapped_column(String(255))

@@ -7,7 +7,7 @@ from models.base import Base
 
 
 class User(Base):
-    __tablename__: str = "users"
+    __tablename__ = "users"
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(String(255), unique=True)
     first_name: Mapped[str] = mapped_column(String(100))
