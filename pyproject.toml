@@ -11,6 +11,7 @@ dependencies = [
   "pydantic-settings",
   "pydantic[email]",
   "psycopg[binary]",
+  "httpx>=0.28.1",
 ]
 
 [project.optional-dependencies]

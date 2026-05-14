@@ -14,7 +14,8 @@ async def handle_paddle_webhook_event(
     session: session,
     raw_body: bytes = Depends(paddle_service.verify_paddle_signature),
 ):
-    return await paddle_service.create_webhook_event(session, raw_body)
+    await paddle_service.create_webhook_event(session, raw_body)
+    return None
 
 
 @paddle_router.get("/webhook")

@@ -65,4 +65,5 @@ async def create_webhook_event(session: AsyncSession, raw_body: bytes):
         await session.rollback()
         logger.info("Paddle webhook: duplicate event_id=%s, skipping", payload.event_id)
 
-    return None
+    await session.refresh(event)
+    return event
