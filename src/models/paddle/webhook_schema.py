@@ -1,7 +1,16 @@
 from datetime import datetime
-from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
+
+
+class PaddleEventData(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    customer_id: str | None = None
+
+
+class PaddleTransactionData(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    customer_id: str
 
 
 class PaddleWebhookEventCreate(BaseModel):
@@ -9,6 +18,7 @@ class PaddleWebhookEventCreate(BaseModel):
     event_type: str
     notification_id: str
     occurred_at: datetime
+    data: PaddleEventData
 
 
 class PaddleWebhookEventRead(BaseModel):
@@ -19,4 +29,4 @@ class PaddleWebhookEventRead(BaseModel):
     event_type: str
     notification_id: str
     occurred_at: datetime
-    payload: dict[str, Any] = Field(default_factory=dict)
+    payload: PaddleWebhookEventCreate

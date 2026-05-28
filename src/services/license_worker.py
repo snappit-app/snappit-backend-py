@@ -65,6 +65,6 @@ async def run_license_worker(stop: asyncio.Event) -> None:
         if processed == 0:
             try:
                 await asyncio.wait_for(stop.wait(), timeout=POLL_INTERVAL_SEC)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 pass
     logger.info("License worker stopped")

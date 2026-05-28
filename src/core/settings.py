@@ -13,8 +13,11 @@ class Settings(BaseSettings):
     )
 
     paddle_secret_key: str
+    paddle_api_key: str
+    paddle_api_base: str = "https://api.paddle.com"
     database_url: str
     sync_database_url: str
+    paddle_env: str = "production"
 
 
 @lru_cache

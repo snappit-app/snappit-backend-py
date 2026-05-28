@@ -1,8 +1,11 @@
+import asyncio
+
 from fastapi import APIRouter, status
 from fastapi.param_functions import Depends
 from fastapi.requests import Request
 
 from core.database import session
+from core.paddle_client import get_paddle_client
 from services import paddle_service
 
 paddle_router = APIRouter(prefix="/v1/paddle", tags=["paddle"])
@@ -21,3 +24,11 @@ async def handle_paddle_webhook_event(
 @paddle_router.get("/webhook")
 async def read_paddle_webhook_events(session: session):
     return await paddle_service.read_paddle_webhook_events(session)
+
+
+@paddle_router.get("/get_paddle_customer")
+async def get_paddle_customer(session: session):
+    paddle = get_paddle_client()
+    return await asyncio.to_thread(
+        paddle.customers.get, "ctm_01khgvv75w70dgj6dv5250qqm5"
+    )

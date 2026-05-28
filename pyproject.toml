@@ -12,6 +12,7 @@ dependencies = [
   "pydantic[email]",
   "psycopg[binary]",
   "httpx>=0.28.1",
+  "paddle_billing"
 ]
 
 [project.optional-dependencies]
