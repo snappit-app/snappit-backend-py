@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     sync_database_url: str
     license_secret_key: str
     paddle_env: str = "production"
+    log_level: str = "INFO"
+    db_echo: bool = False
 
 
 @lru_cache

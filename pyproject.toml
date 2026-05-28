@@ -12,7 +12,8 @@ dependencies = [
   "pydantic[email]",
   "psycopg[binary]",
   "httpx>=0.28.1",
-  "paddle_billing"
+  "paddle-python-sdk",
+  "loguru"
 ]
 
 [project.optional-dependencies]

@@ -5,8 +5,10 @@ from fastapi import FastAPI
 
 from api.paddle import paddle_router
 from api.user_api import user_router
-from core.logger import register_logging
+from core.logger import register_logging, setup_logging
 from services.license_worker import run_license_worker
+
+setup_logging()
 
 
 @asynccontextmanager
@@ -19,6 +21,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
 
 register_logging(app)
 app.include_router(user_router, prefix="/api")

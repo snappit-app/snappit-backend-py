@@ -59,9 +59,9 @@ async def _tick() -> int:
     )
 
     failed = 0
-    for event, result in zip(events, results):
+    for event, result in zip(events, results, strict=True):
         if isinstance(result, Exception):
-            logger.exception("Failed to process event %s: %s", event.id, result, exc_info=result)
+            logger.opt(exception=result).error("Failed to process event {}", event.id)
             failed += 1
     return len(events) - failed
 

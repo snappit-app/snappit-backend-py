@@ -5,11 +5,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from core.settings import get_settings
 
-DATABASE_URL = get_settings().database_url
+settings = get_settings()
 
 engine = create_async_engine(
-    DATABASE_URL,
-    echo=True,
+    settings.database_url,
+    echo=settings.db_echo,
 )
 
 AsyncSessionLocal = async_sessionmaker(

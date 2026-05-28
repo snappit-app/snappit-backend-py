@@ -46,7 +46,7 @@ async def create_webhook_event(session: AsyncSession, raw_body: bytes):
     try:
         payload = PaddleWebhookEventCreate.model_validate_json(raw_body)
     except ValidationError as exc:
-        logger.warning("Paddle webhook: invalid payload: %s", exc)
+        logger.warning("Paddle webhook: invalid payload: {}", exc)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid Paddle payload",
@@ -70,7 +70,9 @@ async def create_webhook_event(session: AsyncSession, raw_body: bytes):
         await session.commit()
     except IntegrityError:
         await session.rollback()
-        logger.info("Paddle webhook: duplicate event_id=%s, skipping", payload.event_id)
+        logger.info(
+            "Paddle webhook: duplicate event_id={}, skipping", payload.event_id
+        )
 
     await session.refresh(event)
     return event
