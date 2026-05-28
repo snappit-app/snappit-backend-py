@@ -41,7 +41,7 @@ class License(Base):
         default=LicenseStatus.ACTIVE.value,
         server_default=LicenseStatus.ACTIVE.value,
     )
-    paddle_event_id: Mapped[str] = mapped_column(String(255), index=True, unique=True)
+    paddle_event_id: Mapped[int] = mapped_column(index=True, unique=True)
     paddle_customer_id: Mapped[str] = mapped_column(String(255), index=True)
     last_paddle_event_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(

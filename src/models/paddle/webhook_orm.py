@@ -45,8 +45,8 @@ class PaddleWebhookEvent(Base):
             length=20,
             values_callable=lambda e: [m.value for m in e],
         ),
-        default=ProcessStatus.PENDING,
-        server_default=ProcessStatus.PENDING.value,
+        default=ProcessStatus.IGNORED,
+        server_default=ProcessStatus.IGNORED.value,
     )
     processed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, index=True

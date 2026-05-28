@@ -1,6 +1,6 @@
 import asyncio
 
-from sqlalchemy import func
+from sqlalchemy import func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import select
 
@@ -17,7 +17,16 @@ MAX_ATTEMPTS = 5
 async def _process_event(event: PaddleWebhookEvent) -> None:
     async with AsyncSessionLocal() as session:
         async with session.begin():
-            await license_service.create_license(session, event)
+            code = await license_service.create_license(session, event)
+            await session.execute(
+                update(PaddleWebhookEvent)
+                .where(PaddleWebhookEvent.id == event.id)
+                .values(
+                    process_status=ProcessStatus.PROCESSED,
+                    processed_at=func.now(),
+                )
+            )
+            logger.info(f"Created license: {code}")
     return
 
 
@@ -49,7 +58,11 @@ async def _tick() -> int:
         return_exceptions=True,
     )
 
-    failed = sum(1 for r in results if isinstance(r, Exception))
+    failed = 0
+    for event, result in zip(events, results):
+        if isinstance(result, Exception):
+            logger.exception("Failed to process event %s: %s", event.id, result, exc_info=result)
+            failed += 1
     return len(events) - failed
 
 

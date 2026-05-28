@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
+from models.paddle.webhook_orm import ProcessStatus
+
 
 class PaddleEventData(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -29,4 +31,5 @@ class PaddleWebhookEventRead(BaseModel):
     event_type: str
     notification_id: str
     occurred_at: datetime
+    process_status: ProcessStatus
     payload: PaddleWebhookEventCreate

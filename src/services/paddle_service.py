@@ -1,6 +1,7 @@
 import json
 
 from fastapi import HTTPException, Request, status
+from paddle_billing.Entities.Events.EventTypeName import EventTypeName
 from paddle_billing.Notifications import Secret, Verifier
 from pydantic import ValidationError
 from sqlalchemy import select
@@ -10,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.paddle._adapters import _PaddleRequest
 from core.logger import logger
 from core.settings import get_settings
-from models.paddle.webhook_orm import PaddleWebhookEvent
+from models.paddle.webhook_orm import PaddleWebhookEvent, ProcessStatus
 from models.paddle.webhook_schema import (
     PaddleWebhookEventCreate,
     PaddleWebhookEventRead,
@@ -58,6 +59,12 @@ async def create_webhook_event(session: AsyncSession, raw_body: bytes):
         occurred_at=payload.occurred_at,
         payload=json.loads(raw_body),
     )
+
+    if payload.event_type == EventTypeName.TransactionCompleted:
+        event.process_status = ProcessStatus.PENDING
+    else:
+        event.process_status = ProcessStatus.IGNORED
+
     session.add(event)
     try:
         await session.commit()

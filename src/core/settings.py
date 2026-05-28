@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     paddle_api_base: str = "https://api.paddle.com"
     database_url: str
     sync_database_url: str
+    license_secret_key: str
     paddle_env: str = "production"
 
 

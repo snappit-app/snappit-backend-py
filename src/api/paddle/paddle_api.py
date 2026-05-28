@@ -3,9 +3,11 @@ import asyncio
 from fastapi import APIRouter, status
 from fastapi.param_functions import Depends
 from fastapi.requests import Request
+from sqlalchemy import select
 
 from core.database import session
 from core.paddle_client import get_paddle_client
+from models.license.license_orm import License
 from services import paddle_service
 
 paddle_router = APIRouter(prefix="/v1/paddle", tags=["paddle"])
@@ -32,3 +34,11 @@ async def get_paddle_customer(session: session):
     return await asyncio.to_thread(
         paddle.customers.get, "ctm_01khgvv75w70dgj6dv5250qqm5"
     )
+
+
+@paddle_router.get("/get_license")
+async def get_license(session: session):
+    stmt = select(License)
+    result = await session.execute(stmt)
+    licenses = result.scalars().all()
+    return licenses
