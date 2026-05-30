@@ -19,6 +19,8 @@ async def get_license(session: session):
 
 @license_router.get("/send_email")
 async def send_email():
-    email_service.send_activation_email(
-        ActivationEmailRequest(to="pinkcolorrrs@gmail.com", activation_code="")
+    return await email_service.send_activation_email(
+        ActivationEmailRequest(
+            to="pinkcolorrrs@gmail.com", activation_code="ACM5E-D6ENS-GRWPJ-WQZQ3"
+        )
     )

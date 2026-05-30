@@ -4,6 +4,7 @@ from resend.exceptions import InvalidApiKeyError, RateLimitError, ResendError
 
 from core.settings import get_settings
 from models.email.activation_email_schema import ActivationEmailRequest
+from services.email_templates.activation_email import build_activation_email_html
 
 
 async def send_activation_email(schema: ActivationEmailRequest) -> None:
@@ -13,8 +14,8 @@ async def send_activation_email(schema: ActivationEmailRequest) -> None:
             {
                 "from": settings.email_from,
                 "to": schema.to,
-                "subject": "Activation code",
-                "html": f"<p>Your activation code: <strong>{schema.activation_code}</strong></p>",
+                "subject": "Your Snappit activation code",
+                "html": build_activation_email_html(schema.activation_code),
             }
         )
     except InvalidApiKeyError:
