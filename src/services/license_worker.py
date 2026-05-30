@@ -6,8 +6,9 @@ from sqlalchemy.sql import select
 
 from core.database import AsyncSessionLocal
 from core.logger import logger
+from models.email.activation_email_schema import ActivationEmailRequest
 from models.paddle.webhook_orm import PaddleWebhookEvent, ProcessStatus
-from services import license_service
+from services import email_service, license_service
 
 BATCH_SIZE = 10
 POLL_INTERVAL_SEC = 10
@@ -17,7 +18,7 @@ MAX_ATTEMPTS = 5
 async def _process_event(event: PaddleWebhookEvent) -> None:
     async with AsyncSessionLocal() as session:
         async with session.begin():
-            code = await license_service.create_license(session, event)
+            [license, code] = await license_service.create_license(session, event)
             await session.execute(
                 update(PaddleWebhookEvent)
                 .where(PaddleWebhookEvent.id == event.id)
@@ -27,6 +28,12 @@ async def _process_event(event: PaddleWebhookEvent) -> None:
                 )
             )
             logger.info(f"Created license: {code}")
+
+            await email_service.send_activation_email(
+                ActivationEmailRequest(to=license.email, activation_code=code)
+            )
+
+            logger.info(f"License email sent: {code}")
     return
 
 

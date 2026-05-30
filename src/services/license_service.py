@@ -15,7 +15,19 @@ from models.license.license_orm import License
 _CODE_ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ23456789"
 
 
-async def create_license(session: AsyncSession, event: PaddleWebhookEvent):
+def _generate_activation_code() -> str:
+    raw = "".join(secrets.choice(_CODE_ALPHABET) for _ in range(20))
+    return "-".join(raw[i : i + 5] for i in range(0, len(raw), 5))
+
+
+def _hash_activation_code(code: str) -> str:
+    secret = get_settings().license_secret_key
+    return hmac.new(secret.encode(), code.encode(), hashlib.sha256).hexdigest()
+
+
+async def create_license(
+    session: AsyncSession, event: PaddleWebhookEvent
+) -> tuple[License, str]:
     transaction = Transaction.from_dict(event.payload.get("data", {}))
 
     if not transaction.customer_id:
@@ -24,9 +36,9 @@ async def create_license(session: AsyncSession, event: PaddleWebhookEvent):
     paddle = get_paddle_client()
     customer = await asyncio.to_thread(paddle.customers.get, transaction.customer_id)
 
-    code = generate_activation_code()
+    code = _generate_activation_code()
     license = License(
-        activation_code_hash=hash_activation_code(code),
+        activation_code_hash=_hash_activation_code(code),
         activation_code_last4=code[-4:],
         email=customer.email,
         paddle_event_id=event.id,
@@ -34,17 +46,7 @@ async def create_license(session: AsyncSession, event: PaddleWebhookEvent):
         last_paddle_event_at=event.occurred_at,
     )
     session.add(license)
-    return code
-
-
-def generate_activation_code() -> str:
-    raw = "".join(secrets.choice(_CODE_ALPHABET) for _ in range(20))
-    return "-".join(raw[i : i + 5] for i in range(0, len(raw), 5))
-
-
-def hash_activation_code(code: str) -> str:
-    secret = get_settings().license_secret_key
-    return hmac.new(secret.encode(), code.encode(), hashlib.sha256).hexdigest()
+    return license, code
 
 
 def activate_license(code):

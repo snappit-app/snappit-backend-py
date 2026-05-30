@@ -34,11 +34,3 @@ async def get_paddle_customer(session: session):
     return await asyncio.to_thread(
         paddle.customers.get, "ctm_01khgvv75w70dgj6dv5250qqm5"
     )
-
-
-@paddle_router.get("/get_license")
-async def get_license(session: session):
-    stmt = select(License)
-    result = await session.execute(stmt)
-    licenses = result.scalars().all()
-    return licenses

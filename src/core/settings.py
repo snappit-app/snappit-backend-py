@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     paddle_env: str = "production"
     log_level: str = "INFO"
     db_echo: bool = False
+    resend_api_key: str
+    email_from: str
 
 
 @lru_cache

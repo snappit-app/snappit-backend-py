@@ -13,7 +13,8 @@ dependencies = [
   "psycopg[binary]",
   "httpx>=0.28.1",
   "paddle-python-sdk",
-  "loguru"
+  "loguru",
+  "resend>=2.30.1",
 ]
 
 [project.optional-dependencies]
